@@ -1,3 +1,17 @@
+/** @file showFDtables.c
+ *  @brief Recreating the System-Wide FD Tables
+ *
+ *  The program is designed to list the file descriptors of a given process.
+ *  It works by reading the /proc directory and retrieving information about
+ *  each process. If the process is owned by the current user, the program
+ *  will examine the /proc/[PID]/fd directory to obtain information about
+ *  each open file descriptor. This program can display the output in various
+ *  formats, including composite, per-process, system-wide, and vnode tables.
+ *
+ *  @author Huang Xinzi
+ *  @bug No known bugs.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +24,29 @@
 #include <ctype.h>
 #include <errno.h>
 
-int show_FD(int pid, int threshold, int *m, int per_process, int sysWide, int vnode, int composite) {
+/** @brief Print the FD table with a specific format of a process with the given pid.
+ * 
+ * 	The function opens the file descriptor directory for the given process and reads
+ *  each file descriptor in the directory. Then it displays those information in the
+ *  requested format.
+ * 	
+ *  @param pid - An integer that represents the process ID of the given files
+ *  @param threshold - An integer used to specify a file descriptor limit.
+ * 					   If a limit is set and the number of open file descriptors
+ * 					   of the process exceeds that limit, the program will only
+ * 					   display the process ID and the number of open file descriptors.
+ *  @param m - A pointer to an integer used to track the number of open file descriptors.
+ *  @param per_process - An integer flag to indicate whether the output is displayed
+ * 					   in per-process format.
+ *  @param sysWide - An integer flag to indicate whether the output is displayed in
+ * 				       system-wide format.
+ *  @param vnode - An integer flag to indicate whether the output is displayed in
+ * 				       vnode format.
+ *  @param composite - An integer flag to indicate whether the output is displayed in
+ * 					   composite format.
+ *  @return Void.
+ */
+void show_FD(int pid, int threshold, int *m, int per_process, int sysWide, int vnode, int composite) {
 	DIR *dir;
     struct dirent *dir_entry;
     struct stat finfo;
@@ -24,7 +60,7 @@ int show_FD(int pid, int threshold, int *m, int per_process, int sysWide, int vn
     }
 
     if ((dir = opendir(d_path)) == NULL){
-        return -1;
+        return;
         // perror("opendir");
     }
     while ((dir_entry = readdir(dir)) != NULL) {
@@ -71,9 +107,26 @@ int show_FD(int pid, int threshold, int *m, int per_process, int sysWide, int vn
     	printf("%d (%d), ", pid, fd_num);
     }
     closedir(dir);
-    return fd_num;
 }
 
+/** @brief Loop the /proc directory to find processes owned by the current user.
+ * 
+ * 	The function opens the /proc directory and reads each directory in the directory.
+ *  If a directory name is a number (represents a PID), the function checks whether
+ *  the process owner is the current user. If it is, the function calls the show_FD
+ *  function on that process ID, to display the FD tables in a given format.
+ * 
+ *  @param threshold - An integer used to specify a file descriptor limit.
+ *  @param per_process - An integer flag to indicate whether the output is displayed
+ * 				     in per-process format.
+ *  @param sysWide - An integer flag to indicate whether the output is displayed in
+ * 				     system-wide format.
+ *  @param vnode - An integer flag to indicate whether the output is displayed in
+ * 				     vnode format.
+ *  @param composite - An integer flag to indicate whether the output is displayed in
+ * 					 composite format.
+ *  @return Void.
+ */
 void find_files(int threshold, int per_process, int sysWide, int vnode, int composite) {
 	DIR *dir;
 	struct dirent *dir_entry;
@@ -84,8 +137,6 @@ void find_files(int threshold, int per_process, int sysWide, int vnode, int comp
     if ((dir = opendir("/proc")) == NULL){
         perror("opendir");
     }
-
-    // printf("\t========================================\n");
 
     while ((dir_entry = readdir(dir)) != NULL) {
     	// Check if the directory name is a number (i.e. PID)
@@ -106,7 +157,7 @@ void find_files(int threshold, int per_process, int sysWide, int vnode, int comp
 	    	while (fgets(line, sizeof(line), fp)) {
 	            if (sscanf(line, "Uid: %d", &uid_cur)) {
 	                if ((int) uid == uid_cur) {
-	                    int num_fd = show_FD(atoi(dir_entry -> d_name), threshold, &m,
+	                    show_FD(atoi(dir_entry -> d_name), threshold, &m,
 	                    	per_process, sysWide, vnode, composite);
 	                }
 	            }
@@ -116,10 +167,34 @@ void find_files(int threshold, int per_process, int sysWide, int vnode, int comp
     }
 
     closedir(dir);
-
-    // printf("\t========================================\n");
 }
 
+/** @brief Print the FD table with a specific format of a process with the given pid.
+ * 
+ * 	The function sets the default behaviour if no argument is passed to the program
+ *  to display the composite table. If a process ID is provided, the function checks
+ *  whether the process ID exists and displays the file descriptors of that process
+ *  in the requested format. If no process ID provided, the function will display the
+ *  FD tables for all processes owned by the current user in the requested format.
+ * 
+ *  @param pid - An integer that represents the process ID.
+ * 	             If -1 is passed as an argument, the program will list the open files
+ *               of all processes owned by the current user. Otherwise it will display
+ *               the FD tables for the specified process.
+ *  @param threshold - An integer used to specify a file descriptor limit.
+ * 					   If a limit is set, the program will display the process ID if
+ * 					   and the number of open file descriptors if the number of its
+ * 					   number of open file descriptors exceeds that limit.
+ *  @param per_process - An integer flag to indicate whether the program will display
+ * 					   a per-process format table.
+ *  @param sysWide - An integer flag to indicate whether the program will display a
+ * 				       system-wide format table.
+ *  @param vnode - An integer flag to indicate whether the program will display a
+ * 				       vnode format table.
+ *  @param composite - An integer flag to indicate whether the program will display a
+ * 					   composite format table.
+ *  @return Void.
+ */
 void show_tables(int pid, int threshold, int per_process, int sysWide,
 	int vnode, int composite) {
 	int m = -1;
@@ -145,25 +220,25 @@ void show_tables(int pid, int threshold, int per_process, int sysWide,
 		if (composite == 1) {
 			printf("\tPID\tFD\tFilename\t\tInode\n");
 			printf("\t========================================\n");
-			int num_fd = show_FD(pid, -1, &m, 0, 0, 0, 1);
+			show_FD(pid, -1, &m, 0, 0, 0, 1);
 			printf("\t========================================\n");
 		}
 		if (per_process == 1) {
 			printf("\tPID\tFD\n");
 			printf("\t========================================\n");
-			int num_fd = show_FD(pid, -1, &m, 1, 0, 0, 0);
+			show_FD(pid, -1, &m, 1, 0, 0, 0);
 			printf("\t========================================\n");
 		}
 		if (sysWide == 1) {
 			printf("\tPID\tFD\tFilename\n");
 			printf("\t========================================\n");
-			int num_fd = show_FD(pid, -1, &m, 0, 1, 0, 0);
+			show_FD(pid, -1, &m, 0, 1, 0, 0);
 			printf("\t========================================\n");
 		}
 		if (vnode == 1) {
 			printf("\tFD\tInode\n");
 			printf("\t========================================\n");
-			int num_fd = show_FD(pid, -1, &m, 0, 0, 1, 0);
+			show_FD(pid, -1, &m, 0, 0, 1, 0);
 			printf("\t========================================\n");
 		}
 		
