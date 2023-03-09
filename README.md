@@ -1,5 +1,4 @@
-# b09asn2
-Recreating the System-Wide FD Tables
+# Recreating the System-Wide FD Tables
 @mainpage showFDtables
 
 @author Huang Xinzi
