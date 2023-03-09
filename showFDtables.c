@@ -191,10 +191,10 @@ void find_files(int threshold, int per_process, int sysWide, int vnode, int comp
     	// Check if the directory name is a number (i.e. PID)
     	if (isdigit(dir_entry -> d_name[0]) > 0) {
 	    	int uid = getuid();      // Get the current user id
-	    	int uid_cur;               // To store the user id information
-	    	char path[50];             // To store path to the desired dictionary
-	    	char line[256];            // To store each line when reading files
-	    	FILE *fp;                  // A file pointer to "/proc/[PID]/status"
+	    	int uid_cur;             // To store the user id information
+	    	char path[50];           // To store path to the desired dictionary
+	    	char line[256];          // To store each line when reading files
+	    	FILE *fp;                // A file pointer to "/proc/[PID]/status"
 
 	    	sprintf(path, "/proc/%d/status", atoi(dir_entry -> d_name));
 
@@ -227,35 +227,26 @@ void find_files(int threshold, int per_process, int sysWide, int vnode, int comp
 /** @brief Print the FD table with a specific format of a process with the given pid.
  * 
  * 	The function sets the default behaviour if no argument is passed to the program
- *  to display the composite table. If a process ID is provided, the function checks
- *  whether the process ID exists and displays the file descriptors of that process
- *  in the requested format. If no process ID provided, the function will display the
- *  FD tables for all processes owned by the current user in the requested format.
+ *  to display the composite table. If a process ID is provided, the function will
+ *  display the file descriptors of that process in the requested format. If no process
+ * 	ID provided, the function will display the FD tables for all processes owned by the
+ *  current user in the requested format.
  * 
  *  @param pid - An integer that represents the process ID.
  * 	             If -1 is passed as an argument, the program will list the open files
  *               of all processes owned by the current user. Otherwise it will display
  *               the FD tables for the specified process.
- *  @param threshold - An integer used to specify a file descriptor limit.
- * 					   If a limit is set, the program will display the process ID if
- * 					   and the number of open file descriptors if the number of its
- * 					   number of open file descriptors exceeds that limit.
  *  @param per_process - An integer flag to indicate whether the program will display
- * 					   a per-process format table.
+ * 					     a per-process format table.
  *  @param sysWide - An integer flag to indicate whether the program will display a
- * 				       system-wide format table.
+ * 				     system-wide format table.
  *  @param vnode - An integer flag to indicate whether the program will display a
- * 				       vnode format table.
+ * 				   vnode format table.
  *  @param composite - An integer flag to indicate whether the program will display a
  * 					   composite format table.
- *  @param txt - An integer flag to indicate whether the program will save a composite
- *             		   table into a text (ASCII) file
- *  @param binary - An integer flag to indicate whether the program will save a composite
- *             		   table into binary file.
  *  @return Void.
  */
-void show_tables(int pid, int threshold, int per_process, int sysWide,
-	int vnode, int composite, int txt, int binary) {
+void show_tables(int pid, int per_process, int sysWide, int vnode, int composite) {
 	int m = -1;
 
 	// Default behaviour: if no argument is passed to the program,
@@ -264,130 +255,146 @@ void show_tables(int pid, int threshold, int per_process, int sysWide,
 		composite = 1;
 	}
 
-	// Storing the divided line and the composite title
-   	char *title = "\tPID\tFD\tFilename\t\tInode\n";
+	// Storing the divided line
    	char *line = "\t========================================\n";
 
-	if (pid != - 1) { // If the user entered a PID
-		// Create a path to the process corresponding to the PID
-		char path[50];
-    	sprintf(path, "/proc/%d", pid);
-
-    	// If the process id doesn't exist, print an error message
-    	if (access(path, F_OK) != 0) {
-        	char message[50];
-    		sprintf(message, "PID '%d' entered does not exist!", pid);
-        	handle_error(message);
-   		}
-
-   		// Print a title
-   		printf(">>> target PID: %d\n", pid);
-
-   		// Given the flags' value, display the FD tables in all requested formats
-   		// for the process by passing different flag values to the function show_FD
-		if (composite == 1) {
-			printf("%s%s", title, line);
+	// Given the flags' value, display the FD tables in all requested formats
+	// for the process with PID pid by passing different flag values to the
+	// function show_FD. If no PID is presented by the user, call find_files
+	// to get all user-owned processes.
+	if (composite == 1) { // If the composite flag is on
+		printf("\tPID\tFD\tFilename\t\tInode\n%s", line); // Print the title information
+		if (pid != - 1) { // If a specific PID given
 			show_FD(pid, -1, &m, 0, 0, 0, 1, NULL, NULL);
-			printf("%s", line);
-		}
-		if (per_process == 1) {
-			printf("\tPID\tFD\n%s", line);
-			show_FD(pid, -1, &m, 1, 0, 0, 0, NULL, NULL);
-			printf("%s", line);
-		}
-		if (sysWide == 1) {
-			printf("\tPID\tFD\tFilename\n%s", line);
-			show_FD(pid, -1, &m, 0, 1, 0, 0, NULL, NULL);
-			printf("%s", line);
-		}
-		if (vnode == 1) {
-			printf("\tFD\tInode\n%s", line);
-			show_FD(pid, -1, &m, 0, 0, 1, 0, NULL, NULL);
-			printf("%s", line);
-		}
-	} else { // If no PID is presented by the user
-		// Given the flags' value, display the FD tables in all requested formats
-   		// for all the process by passing different flag values to find_files
-		if (composite == 1) {
-			printf("\tPID\tFD\tFilename\t\tInode\n%s", line);
+		} else {          // Otherwise display FD tables for all processes
 			find_files(-1, 0, 0, 0, 1, NULL, NULL);
-			printf("%s", line);
 		}
-		if (per_process == 1) {
-			printf("\tPID\tFD\n%s", line);
-			find_files(-1, 1, 0, 0, 0, NULL, NULL);
-			printf("%s", line);
-		}
-		if (sysWide == 1) {
-			printf("\tPID\tFD\tFilename\n%s", line);
-			find_files(-1, 0, 1, 0, 0, NULL, NULL);
-			printf("%s", line);
-		}
-		if (vnode == 1) {
-			printf("\tFD\tInode\n%s", line);
-			find_files(-1, 0, 0, 1, 0, NULL, NULL);
-			printf("%s", line);
-		}
+		printf("%s", line); // Print the divided line
 	}
+	if (per_process == 1) {
+		printf("\tPID\tFD\n%s", line);
+		if (pid != - 1) {
+			show_FD(pid, -1, &m, 1, 0, 0, 0, NULL, NULL);
+		} else {
+			find_files(-1, 1, 0, 0, 0, NULL, NULL);
+		}
+		printf("%s", line);
+	}
+	if (sysWide == 1) {
+		printf("\tPID\tFD\tFilename\n%s", line);
+		if (pid != - 1) {
+			show_FD(pid, -1, &m, 0, 1, 0, 0, NULL, NULL);
+		} else {
+			find_files(-1, 0, 1, 0, 0, NULL, NULL);
+		}
+		printf("%s", line);
+	}
+	if (vnode == 1) {
+		printf("\tFD\tInode\n%s", line);
+		if (pid != - 1) {
+			show_FD(pid, -1, &m, 0, 0, 1, 0, NULL, NULL);
+		} else {
+			find_files(-1, 0, 0, 1, 0, NULL, NULL);
+		}
+		printf("%s", line);
+	}
+}
 
+/** @brief Print the PID and its assigned FD number it the FD number exceed a limit.
+ * 
+ * 	If a threshold is set, the program will display the process ID if and the number
+ *  of open file descriptors for that process if the number of FD assigned to that
+ *  process exceeds the threshold.
+ *
+ *  @param threshold - An integer used to specify a file descriptor limit.
+ *  @return Void.
+ */
+void show_theshold(int threshold) {
 	// If there is a threshold entered, print the process whose number of
 	// file descriptors exceeds that limit
-	if (threshold != -1) {
-		printf("## Offending processes:\n");
-		find_files(threshold, 0, 0, 0, 0, NULL, NULL);
-		printf("\n");
+	printf("## Offending processes:\n");
+	find_files(threshold, 0, 0, 0, 0, NULL, NULL);
+	printf("\n");
+}
+
+/** @brief Output the composite FD table into a text (ASCII) file.
+ * 
+ * 	If a process ID is provided, the function outputs the composite table for that
+ * 	specific process. Otherwise outputs the composite tables for all processes owned
+ *  by the current user.
+ * 
+ *  @param pid - An integer that represents the process ID.
+ *  @return Void.
+ */
+void output_txt(int pid) {
+	int m = -1;
+
+	// Storing the divided line
+   	char *line = "\t========================================\n";
+
+	// Create a text file to store the output information
+	FILE *output_txt = fopen("compositeTable.txt", "w"); // write only
+
+	// test for files not existing (i.e. fopen fails)
+	if (output_txt == NULL) {
+		perror("fopen");
 	}
 
-	// If the user wants to output the composite table as a text file
-	if (txt == 1) {
-		// Create a text file to store the output information
-		FILE *output_txt = fopen("compositeTable.txt", "w"); // write only
+	// Write the title to the file
+	fprintf(output_txt, ">>> target PID: %d\n\tPID\tFD\tFilename\t\tInode\n%s",
+		pid, line);
+	if (pid != -1) {
+		// Pass the file pointer to show_FD to write the FD information
+		show_FD(pid, -1, &m, 0, 0, 0, 0, output_txt, NULL);
+	} else {
+		// Pass the file pointer to find_files and let find_files loop each
+		// process then call show_FD to write the FD information
+		find_files(-1, 0, 0, 0, 0, output_txt, NULL);
+	}
+	fprintf(output_txt, "%s", line);
+	// Close the file after writing
+	fclose(output_txt);
+}
 
-		// test for files not existing (i.e. fopen fails)
-		if (output_txt == NULL) {
-			perror("fopen");
-		}
+/** @brief Output the composite FD table into a binary file.
+ * 
+ * 	If a process ID is provided, the function outputs the composite table for that
+ * 	specific process. Otherwise outputs the composite tables for all processes owned
+ *  by the current user.
+ * 
+ *  @param pid - An integer that represents the process ID.
+ *  @return Void.
+ */
+void output_binary(int pid) {
+	int m = -1;
 
-		// Write the title to the file
-		fprintf(output_txt, "%s%s", title, line);
-		if (pid != -1) {
-			// Pass the file pointer to show_FD to write the FD information
-			show_FD(pid, -1, &m, 0, 0, 0, 0, output_txt, NULL);
-		} else {
-			// Pass the file pointer to find_files and let find_files loop each
-			// process then call show_FD to write the FD information
-			find_files(-1, 0, 0, 0, 0, output_txt, NULL);
-		}
-		fprintf(output_txt, "%s", line);
-		// Close the file after writing
-		fclose(output_txt);
+	// Storing the divided line and the composite title
+	char title[50];
+   	char *line = "\t========================================\n";
+   	sprintf(title, ">>> target PID: %d\n\tPID\tFD\tFilename\t\tInode\n", pid);
+
+	// Create a binary file to store the output information
+	FILE *output_binary = fopen("compositeTable.bin", "wb"); // write only
+
+	// test for files not existing (i.e. fopen fails)
+	if (output_binary == NULL) {
+		perror("fopen");
 	}
 
-	// If the user wants to output the composite table as a binary file
-	if (binary == 1) {
-		// Create a binary file to store the output information
-		FILE *output_binary = fopen("compositeTable.bin", "wb"); // write only
-
-		// test for files not existing (i.e. fopen fails)
-		if (output_binary == NULL) {
-			perror("fopen");
-		}
-
-		// Write the title information to the file
-		fwrite(title, 1, sizeof(title), output_binary);
-		fwrite(line, 1, sizeof(line), output_binary);
-		if (pid != -1) {
-			// Pass the file pointer to show_FD to write the FD information
-			show_FD(pid, -1, &m, 0, 0, 0, 0, NULL, output_binary);
-		} else {
-			// Pass the file pointer to find_files and let find_files loop each
-			// process then call show_FD to write the FD information
-			find_files(-1, 0, 0, 0, 0, NULL, output_binary);
-		}
-		fwrite(line, 1, sizeof(line), output_binary);
-		// Close the file after writing
-		fclose(output_binary);
+	// Write the title information to the file
+	fwrite(title, 1, sizeof(title), output_binary);
+	fwrite(line, 1, sizeof(line), output_binary);
+	if (pid != -1) {
+		// Pass the file pointer to show_FD to write the FD information
+		show_FD(pid, -1, &m, 0, 0, 0, 0, NULL, output_binary);
+	} else {
+		// Pass the file pointer to find_files and let find_files loop each
+		// process then call show_FD to write the FD information
+		find_files(-1, 0, 0, 0, 0, NULL, output_binary);
 	}
+	fwrite(line, 1, sizeof(line), output_binary);
+	// Close the file after writing
+	fclose(output_binary);
 }
 
 /** @brief Validate the command line arguments user gived.
@@ -405,15 +412,15 @@ void show_tables(int pid, int threshold, int per_process, int sysWide,
  *  @param sysWide - Point to an integer to indicate if "--systemWide" is been called
  *  @param vnode - Point to an integer to indicate if "--Vnodes" is been called
  *  @param composite - Point to an integer to indicate if "--composite" is been called
- *  @param output_txt - Point to an integer to indicate if "--output_TXT" is been called
- *  @param output_binary - Point to an integer to indicate if "--output_binary" is been called
+ *  @param txt - Point to an integer to indicate if "--output_TXT" is been called
+ *  @param binary - Point to an integer to indicate if "--output_binary" is been called
  *  @param pid - A pointer to an integer that represents the process ID
  *  @param threshold - A pointer to an integer used to specify a file descriptor limit.
  * 					   Set if "--threshold=X" is been called
  *  @return Void.
  */
 void vertify_arg(int argc, char *argv[], int *per_process, int *sysWide, int *vnode,
-	int *composite, int *output_txt, int *output_binary, int *pid, int *threshold) {
+	int *composite, int *txt, int *binary, int *pid, int *threshold) {
 	int tmp_pid, tmp_threshold; // Store temporary pid / threshold valus
 	for (int i = 1; i < argc; i ++) {
         // Loop the command line arguments for verifying
@@ -437,19 +444,31 @@ void vertify_arg(int argc, char *argv[], int *per_process, int *sysWide, int *vn
         	// Otherwise set the threshold value to the user's input
         	*threshold = tmp_threshold;
         } else if (sscanf(argv[i], "%d", &tmp_pid) == 1) {
+        	// Create a path to the process corresponding to the PID
+			char path[50];
+    		sprintf(path, "/proc/%d", tmp_pid);
+
         	// If there are more than one positional arguments, or the positional
-        	// argument is negative, report an error
+        	// argument is negative, or no such pid exits, report an error
         	if (*pid != -1) {
         		handle_error("Can only take one positional argument indicating a PID!");
         	} else if (tmp_pid < 0) {
         		handle_error("Can only take a positive integer indicating a PID!");
-        	}
-        	// Otherwise set the process id to the user's input
-        	*pid = tmp_pid;
+        	} else if (access(path, F_OK) != 0) {
+        		// If the process id doesn't exist, print an error message
+        		char message[50];
+    			sprintf(message, "PID '%d' entered does not exist!", tmp_pid);
+        		handle_error(message);
+   			} else {
+   				// Otherwise set the process id to the user's input
+        		*pid = tmp_pid;
+   				// Print a title
+   				printf(">>> target PID: %d\n", *pid);
+   			}
         } else if (strcmp(argv[i], "--output_TXT") == 0) {
-        	*output_txt = 1;
+        	*txt = 1;
         } else if (strcmp(argv[i], "--output_binary") == 0) {
-        	*output_binary = 1;
+        	*binary = 1;
         } else {
         	// If the statement is in other format, print an error message
             printf("Invalid arguments: \"%s\"\n", argv[i]);
@@ -466,15 +485,31 @@ int main (int argc, char *argv[]) {
 
 	// Create flags for each argument to check if they're being called
 	int per_process = 0, sysWide = 0, vnode = 0, composite = 0;
-	int output_txt = 0, output_binary = 0;
+	int txt = 0, binary = 0;
 
 	// Validate the command line arguments
 	vertify_arg(argc, argv, &per_process, &sysWide, &vnode, &composite,
-		&output_txt, &output_binary, &pid, &threshold);
+		&txt, &binary, &pid, &threshold);
 
 	// Print the FD tables in the requested format
-	show_tables(pid, threshold, per_process, sysWide, vnode, composite,
-		output_txt, output_binary);
+	show_tables(pid, per_process, sysWide, vnode, composite);
+
+	// If a threshold is set, display the process ID if and the number of FD
+	// assigned for that process if the number of FD assigned to that process
+	// exceeds the threshold.
+	if (threshold != -1) {
+		show_theshold(threshold);
+	}
+
+	// If the user wants to output the composite table as a text file
+	if (txt == 1) {
+		output_txt(pid);
+	}
+
+	// If the user wants to output the composite table as a binary file
+	if (binary == 1) {
+		output_binary(pid);
+	}
 
     return 0;
 }
